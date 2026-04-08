@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>A/B Test MDE Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-100 p-6 font-sans text-gray-800" onload="init()">
+
+<div class="max-w-5xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-lg p-8">
+
+        <!-- Header -->
+        <div class="mb-8 flex items-start justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">A/B Test Power &amp; MDE Calculator</h1>
+                <p class="text-sm text-slate-500 mt-1">Estimate the Minimum Detectable Effect for any experiment. Configure your metrics, statistical settings, and select a test duration.</p>
+            </div>
+            <!-- API status indicator -->
+            <span id="api_status" class="flex items-center gap-1.5 text-xs text-slate-400 mt-1 flex-shrink-0">
+                <span id="api_dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                <span id="api_label">connecting…</span>
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- ── LEFT COLUMN ── -->
+            <div class="space-y-5">
+
+                <!-- Experiment Setup -->
+                <section>
+                    <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Experiment Setup</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Daily Units</label>
+                            <input type="number" id="traffic" value="1985" min="1"
+                                class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-300 outline-none"
+                                oninput="debounceCalculate()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Test Sensitivity</label>
+                            <select id="target_lift" class="w-full border border-amber-300 bg-amber-50 rounded-lg p-2 text-sm focus:ring-2 focus:ring-amber-300 outline-none font-semibold" onchange="calculate()">
+                                <option value="2">Very high — can detect ≥2% lift</option>
+                                <option value="5" selected>Standard — can detect ≥5% lift ★</option>
+                                <option value="10">Moderate — can detect ≥10% lift</option>
+                                <option value="20">Coarse — can detect ≥20% lift</option>
+                            </select>
+                            <p class="text-xs text-slate-400 mt-1">Higher sensitivity = longer test. "Standard" is the industry default.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Confidence</label>
+                            <select id="confidence" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-300 outline-none" onchange="calculate()">
+                                <option value="1.645">90%</option>
+                                <option value="1.96" selected>95%</option>
+                                <option value="2.576">99%</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Power</label>
+                            <select id="power" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-300 outline-none" onchange="calculate()">
+                                <option value="0.524">70%</option>
+                                <option value="0.842" selected>80%</option>
+                                <option value="1.282">90%</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Metric 1: Rate/Proportion -->
+                <section class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">1</span>
+                        <span class="text-xs font-bold uppercase tracking-wide text-blue-600">Rate / Proportion Metric</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Metric Name</label>
+                            <input type="text" id="m1_name" value="Conversion Rate (CR)"
+                                class="w-full border border-blue-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
+                                oninput="updateChartLabels()">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Baseline (%)</label>
+                            <input type="number" id="m1_base" value="10.42" step="0.01" min="0.01" max="99.99"
+                                class="w-full border border-blue-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
+                                oninput="debounceCalculate()">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Metric 2: Continuous -->
+                <section class="bg-purple-50 border border-purple-100 rounded-xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="w-5 h-5 rounded-full bg-purple-600 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">2</span>
+                        <span class="text-xs font-bold uppercase tracking-wide text-purple-600">Continuous / Value Metric</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Metric Name</label>
+                            <input type="text" id="m2_name" value="Revenue per Session (RPS)"
+                                class="w-full border border-purple-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
+                                oninput="updateChartLabels()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Baseline Value</label>
+                            <input type="number" id="m2_base" value="11.79" step="0.01"
+                                class="w-full border border-purple-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
+                                oninput="debounceCalculate()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Coeff. of Variation (CV)</label>
+                            <input type="number" id="m2_cv" value="4.29" step="0.01" min="0"
+                                class="w-full border border-purple-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
+                                oninput="debounceCalculate()">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Test Duration -->
+                <section>
+                    <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Test Duration</h2>
+                    <p class="text-xs text-slate-400 mb-3">
+                        <span class="text-amber-500 font-bold">★ Recommended</span> = minimum days to reliably detect your chosen sensitivity level on the rate metric, at the selected confidence &amp; power.
+                        Requires ~<span id="req_days_text" class="font-semibold text-slate-500">—</span> days of data.
+                    </p>
+                    <div id="period_options" class="flex flex-wrap gap-2"></div>
+                </section>
+
+                <!-- Results Box -->
+                <section id="results_box" class="rounded-xl p-5 border-2 border-blue-200 bg-gradient-to-br from-slate-50 to-blue-50 relative">
+                    <!-- Loading overlay -->
+                    <div id="loading_overlay" class="hidden absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
+                        <div class="flex items-center gap-2 text-sm text-slate-500">
+                            <svg class="animate-spin w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                            </svg>
+                            Calculating…
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-slate-800">
+                            MDE Summary — <span id="display_days" class="text-blue-600">—</span> Days
+                        </h3>
+                        <span id="rec_badge" class="hidden text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full border border-amber-300">★ Recommended</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-3">
+                        Sample per variant: <strong id="out_n" class="text-base text-slate-800">—</strong>
+                    </p>
+                    <hr class="border-slate-200 mb-3">
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-2">
+                            <span class="mt-1 w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                            <div>
+                                <p class="text-xs text-slate-500" id="m1_result_label">Metric 1</p>
+                                <p class="text-sm font-semibold text-green-700">
+                                    Min detectable lift: <span id="out_m1_abs">—</span> &nbsp;<span class="font-normal text-slate-400">abs</span>
+                                    &nbsp;·&nbsp; <span id="out_m1_rel">—</span>% <span class="font-normal text-slate-400">rel</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="mt-1 w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0"></span>
+                            <div>
+                                <p class="text-xs text-slate-500" id="m2_result_label">Metric 2</p>
+                                <p class="text-sm font-semibold text-green-700">
+                                    Min detectable lift: <span id="out_m2_abs">—</span> &nbsp;<span class="font-normal text-slate-400">abs</span>
+                                    &nbsp;·&nbsp; <span id="out_m2_rel">—</span>% <span class="font-normal text-slate-400">rel</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="low_traffic_warn" class="hidden mt-3 text-xs text-red-500 italic">
+                        ⚠ Even at 90 days, the required sample size for your target lift is not reached. Consider increasing traffic or raising the target lift.
+                    </p>
+                    <p id="api_error" class="hidden mt-3 text-xs text-red-500 italic"></p>
+                </section>
+
+            </div>
+
+            <!-- ── RIGHT COLUMN: Chart ── -->
+            <div>
+                <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">MDE Curve — Diminishing Returns</h2>
+                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <canvas id="mdeChart" height="360"></canvas>
+                </div>
+                <div class="mt-3 space-y-1 text-xs text-slate-400 italic">
+                    <p>
+                        Vertical dashed lines mark your <span class="text-blue-500 not-italic font-semibold">selected</span> and <span class="text-amber-500 not-italic font-semibold">★ recommended</span> periods.
+                        The <span class="text-amber-500 not-italic font-semibold">amber horizontal line</span> is your target lift — the recommended period is where the rate-metric curve first crosses below it.
+                    </p>
+                    <p>MDE ∝ 1/√n — returns are always diminishing, but the rate depends on your traffic and metric variability.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // In development the backend runs on :3001.
+    // In production the backend serves this file too (same origin).
+    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://localhost:3001'
+        : '';
+
+    const PERIOD_OPTIONS = [14, 21, 30, 45, 60, 90];
+
+    let mdeChart;
+    let selectedPeriod    = 60;
+    let recommendedPeriod = null;
+    let currentTargetPct  = 5;
+    let debounceTimer     = null;
+
+    // ── Custom plugin: vertical lines + horizontal target reference line ──────
+    const verticalLinePlugin = {
+        id: 'verticalLines',
+        afterDraw(chart) {
+            if (!chart.scales.x || !chart.scales.y) return;
+            const { ctx } = chart;
+            const xAxis = chart.scales.x;
+            const yAxis = chart.scales.y;
+
+            if (currentTargetPct > 0) {
+                const y = yAxis.getPixelForValue(currentTargetPct);
+                if (y >= yAxis.top && y <= yAxis.bottom) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(xAxis.left, y);
+                    ctx.lineTo(xAxis.right, y);
+                    ctx.strokeStyle = '#d97706';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#d97706';
+                    ctx.font = '9px system-ui, sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`target ${currentTargetPct}%`, xAxis.right - 2, y - 3);
+                    ctx.restore();
+                }
+            }
+
+            const drawVLine = (day, color, dash, label) => {
+                const x = xAxis.getPixelForValue(day);
+                if (x < xAxis.left || x > xAxis.right) return;
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, yAxis.top);
+                ctx.lineTo(x, yAxis.bottom);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.8;
+                ctx.setLineDash(dash);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = color;
+                ctx.font = 'bold 10px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, x, yAxis.top - 5);
+                ctx.restore();
+            };
+
+            if (recommendedPeriod && recommendedPeriod !== selectedPeriod) {
+                drawVLine(recommendedPeriod, '#d97706', [4, 4], `★ ${recommendedPeriod}d`);
+            }
+            drawVLine(selectedPeriod, '#2563eb', [6, 3], `${selectedPeriod}d`);
+        }
+    };
+
+    function init() {
+        const ctx = document.getElementById('mdeChart').getContext('2d');
+        mdeChart = new Chart(ctx, {
+            type: 'line',
+            plugins: [verticalLinePlugin],
+            data: {
+                datasets: [
+                    {
+                        label: 'Metric 1 MDE %',
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37,99,235,0.07)',
+                        data: [], tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4,
+                    },
+                    {
+                        label: 'Metric 2 MDE %',
+                        borderColor: '#9333ea',
+                        backgroundColor: 'rgba(147,51,234,0.07)',
+                        data: [], tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                layout: { padding: { top: 18 } },
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { type: 'linear', min: 7, max: 120,
+                         title: { display: true, text: 'Test Duration (Days)', font: { size: 11 } },
+                         ticks: { font: { size: 10 }, stepSize: 14 } },
+                    y: { beginAtZero: true,
+                         title: { display: true, text: 'Min Detectable Lift — Relative (%)', font: { size: 11 } },
+                         ticks: { font: { size: 10 } } }
+                },
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { font: { size: 10 }, boxWidth: 12 } },
+                    tooltip: { mode: 'index', intersect: false }
+                }
+            }
+        });
+
+        calculate();
+    }
+
+    // ── Debounce for text/number inputs (avoid API call on every keystroke) ──
+    function debounceCalculate() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(calculate, 350);
+    }
+
+    // ── Main: read inputs → call API → render results ──────────────────────
+    async function calculate() {
+        const traffic    = parseFloat(document.getElementById('traffic').value)    || 0;
+        const m1Base     = parseFloat(document.getElementById('m1_base').value)    || 0;
+        const m2Base     = parseFloat(document.getElementById('m2_base').value)    || 0;
+        const m2CV       = parseFloat(document.getElementById('m2_cv').value)      || 0;
+        const targetLift = parseFloat(document.getElementById('target_lift').value)|| 5;
+        const confidence = parseFloat(document.getElementById('confidence').value);
+        const power      = parseFloat(document.getElementById('power').value);
+
+        if (!traffic || !m1Base || !m2Base) return;
+
+        setLoading(true);
+        setApiError('');
+
+        try {
+            const res = await fetch(`${API_BASE}/api/calculate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ traffic, days: selectedPeriod, m1Base, m2Base, m2CV,
+                                       confidence, power, targetLift }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || `Server error ${res.status}`);
+            }
+
+            renderResults(await res.json(), targetLift);
+            setApiStatus(true);
+
+        } catch (err) {
+            setApiStatus(false);
+            setApiError(`⚠ Could not reach the stats API — ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // ── Render API response into the UI ────────────────────────────────────
+    function renderResults(data, targetPct) {
+        const m1Name = document.getElementById('m1_name').value || 'Metric 1';
+        const m2Name = document.getElementById('m2_name').value || 'Metric 2';
+
+        currentTargetPct  = targetPct;
+        recommendedPeriod = data.recommendedPeriod;
+
+        document.getElementById('req_days_text').textContent =
+            data.requiredDays < 1 ? '<1' : Math.ceil(data.requiredDays).toLocaleString();
+
+        renderPeriodButtons();
+
+        document.getElementById('low_traffic_warn').classList.toggle('hidden', recommendedPeriod !== null);
+
+        document.getElementById('display_days').textContent = selectedPeriod;
+        document.getElementById('out_n').textContent        = Math.round(data.n).toLocaleString() + ' units';
+        document.getElementById('out_m1_abs').textContent   = '+' + (data.m1_abs * 100).toFixed(2) + ' pp';
+        document.getElementById('out_m1_rel').textContent   = data.m1_rel.toFixed(1);
+        document.getElementById('out_m2_abs').textContent   = '+' + data.m2_abs.toFixed(3);
+        document.getElementById('out_m2_rel').textContent   = data.m2_rel.toFixed(1);
+        document.getElementById('m1_result_label').textContent = m1Name;
+        document.getElementById('m2_result_label').textContent = m2Name;
+
+        document.getElementById('rec_badge').classList.toggle('hidden', selectedPeriod !== recommendedPeriod);
+
+        mdeChart.data.datasets[0].data  = data.chartData.m1;
+        mdeChart.data.datasets[0].label = m1Name + ' MDE %';
+        mdeChart.data.datasets[1].data  = data.chartData.m2;
+        mdeChart.data.datasets[1].label = m2Name + ' MDE %';
+        mdeChart.update();
+    }
+
+    function renderPeriodButtons() {
+        const container = document.getElementById('period_options');
+        container.innerHTML = '';
+
+        PERIOD_OPTIONS.forEach(p => {
+            const isRec = (p === recommendedPeriod);
+            const isSel = (p === selectedPeriod);
+
+            let cls = 'relative flex items-center gap-1 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm font-semibold transition-all select-none ';
+            if      (isSel && isRec) cls += 'border-blue-500 bg-blue-100 text-blue-800 shadow ring-2 ring-amber-400 ring-offset-1';
+            else if (isSel)          cls += 'border-blue-500 bg-blue-100 text-blue-800 shadow';
+            else if (isRec)          cls += 'border-amber-400 bg-amber-50 text-amber-800';
+            else                     cls += 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50';
+
+            const lbl = document.createElement('label');
+            lbl.className = cls;
+
+            const radio = document.createElement('input');
+            radio.type    = 'radio';
+            radio.name    = 'period';
+            radio.value   = p;
+            radio.checked = isSel;
+            radio.className = 'sr-only';
+            radio.addEventListener('change', () => { selectedPeriod = p; calculate(); });
+
+            lbl.appendChild(radio);
+            lbl.insertAdjacentHTML('beforeend', `<span>${p}d</span>`);
+            if (isRec) lbl.insertAdjacentHTML('beforeend', `<span class="text-amber-500">★</span>`);
+
+            container.appendChild(lbl);
+        });
+    }
+
+    function updateChartLabels() {
+        if (!mdeChart) return;
+        const m1Name = document.getElementById('m1_name').value || 'Metric 1';
+        const m2Name = document.getElementById('m2_name').value || 'Metric 2';
+        mdeChart.data.datasets[0].label = m1Name + ' MDE %';
+        mdeChart.data.datasets[1].label = m2Name + ' MDE %';
+        mdeChart.update();
+        document.getElementById('m1_result_label').textContent = m1Name;
+        document.getElementById('m2_result_label').textContent = m2Name;
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────────────────
+    function setLoading(on) {
+        document.getElementById('loading_overlay').classList.toggle('hidden', !on);
+    }
+
+    function setApiError(msg) {
+        const el = document.getElementById('api_error');
+        el.textContent = msg;
+        el.classList.toggle('hidden', !msg);
+    }
+
+    function setApiStatus(ok) {
+        document.getElementById('api_dot').className   = `w-2 h-2 rounded-full ${ok ? 'bg-green-400' : 'bg-red-400'}`;
+        document.getElementById('api_label').textContent = ok ? 'API connected' : 'API offline';
+    }
+</script>
+</body>
+</html>
