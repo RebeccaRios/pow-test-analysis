@@ -200,13 +200,38 @@
 </div>
 
 <script>
-    // In development the backend runs on :3001.
-    // In production the backend serves this file too (same origin).
-    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? 'http://localhost:3001'
-        : '';
-
+    // ── Stats functions (ported from backend/stats.js) ──────────────────────
     const PERIOD_OPTIONS = [14, 21, 30, 45, 60, 90];
+
+    function computeMDE({ traffic, days, cr, variance, m2Base, Z }) {
+        const n = (traffic * days) / 2;
+        const m1_abs = Z * Math.sqrt((2 * cr * (1 - cr)) / n);
+        const m1_rel = (m1_abs / cr) * 100;
+        const m2_abs = Z * Math.sqrt((2 * variance) / n);
+        const m2_rel = (m2_abs / m2Base) * 100;
+        return { n, m1_abs, m1_rel, m2_abs, m2_rel };
+    }
+
+    function requiredDays({ traffic, cr, Z, targetPct }) {
+        const delta = cr * (targetPct / 100);
+        const n_req = (Z * Z * 2 * cr * (1 - cr)) / (delta * delta);
+        return (2 * n_req) / traffic;
+    }
+
+    function getRecommendedPeriod({ traffic, cr, Z, targetPct }) {
+        const days_req = requiredDays({ traffic, cr, Z, targetPct });
+        return PERIOD_OPTIONS.find(d => d >= days_req) ?? null;
+    }
+
+    function buildChartData({ traffic, cr, variance, m2Base, Z }) {
+        const m1 = [], m2 = [];
+        for (let d = 7; d <= 120; d++) {
+            const pn = (traffic * d) / 2;
+            m1.push({ x: d, y: (Z * Math.sqrt((2 * cr * (1 - cr)) / pn)) / cr * 100 });
+            m2.push({ x: d, y: variance > 0 ? (Z * Math.sqrt((2 * variance) / pn)) / m2Base * 100 : 0 });
+        }
+        return { m1, m2 };
+    }
 
     let mdeChart;
     let selectedPeriod    = 60;
@@ -310,6 +335,7 @@
         });
 
         calculate();
+        setApiStatus(true);
     }
 
     // ── Debounce for text/number inputs (avoid API call on every keystroke) ──
@@ -319,7 +345,7 @@
     }
 
     // ── Main: read inputs → call API → render results ──────────────────────
-    async function calculate() {
+    function calculate() {
         const traffic    = parseFloat(document.getElementById('traffic').value)    || 0;
         const m1Base     = parseFloat(document.getElementById('m1_base').value)    || 0;
         const m2Base     = parseFloat(document.getElementById('m2_base').value)    || 0;
@@ -330,31 +356,26 @@
 
         if (!traffic || !m1Base || !m2Base) return;
 
-        setLoading(true);
         setApiError('');
 
-        try {
-            const res = await fetch(`${API_BASE}/api/calculate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ traffic, days: selectedPeriod, m1Base, m2Base, m2CV,
-                                       confidence, power, targetLift }),
-            });
+        const cr       = m1Base / 100;
+        const Z        = confidence + power;
+        const variance = Math.pow(m2Base * m2CV, 2);
 
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || `Server error ${res.status}`);
-            }
+        const mde       = computeMDE({ traffic, days: selectedPeriod, cr, variance, m2Base, Z });
+        const days_req  = requiredDays({ traffic, cr, Z, targetPct: targetLift });
+        const recommended = getRecommendedPeriod({ traffic, cr, Z, targetPct: targetLift });
+        const chartData = buildChartData({ traffic, cr, variance, m2Base, Z });
 
-            renderResults(await res.json(), targetLift);
-            setApiStatus(true);
+        const data = {
+            ...mde,
+            requiredDays:      days_req,
+            recommendedPeriod: recommended,
+            periodOptions:     PERIOD_OPTIONS,
+            chartData,
+        };
 
-        } catch (err) {
-            setApiStatus(false);
-            setApiError(`⚠ Could not reach the stats API — ${err.message}`);
-        } finally {
-            setLoading(false);
-        }
+        renderResults(data, targetLift);
     }
 
     // ── Render API response into the UI ────────────────────────────────────
@@ -435,10 +456,6 @@
     }
 
     // ── UI helpers ──────────────────────────────────────────────────────────
-    function setLoading(on) {
-        document.getElementById('loading_overlay').classList.toggle('hidden', !on);
-    }
-
     function setApiError(msg) {
         const el = document.getElementById('api_error');
         el.textContent = msg;
