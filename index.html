@@ -17,8 +17,7 @@
                 <h1 class="text-2xl font-bold text-slate-800">A/B Test Power &amp; MDE Calculator</h1>
                 <p class="text-sm text-slate-500 mt-1">Estimate the Minimum Detectable Effect for any experiment. Configure your metrics, statistical settings, and select a test duration.</p>
             </div>
-            <!-- API status indicator -->
-            <span id="api_status" class="flex items-center gap-1.5 text-xs text-slate-400 mt-1 flex-shrink-0">
+            <span class="flex items-center gap-1.5 text-xs text-slate-400 mt-1 flex-shrink-0">
                 <span id="api_dot" class="w-2 h-2 rounded-full bg-slate-300"></span>
                 <span id="api_label">connecting…</span>
             </span>
@@ -68,7 +67,7 @@
                     </div>
                 </section>
 
-                <!-- Metric 1: Rate/Proportion -->
+                <!-- Metric 1: Rate / Proportion -->
                 <section class="bg-blue-50 border border-blue-100 rounded-xl p-4">
                     <div class="flex items-center gap-2 mb-3">
                         <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">1</span>
@@ -76,10 +75,24 @@
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div class="col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Preset</label>
+                            <select id="m1_preset" onchange="applyRatePreset()"
+                                class="w-full border border-blue-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none">
+                                <option value="cr">Conversion Rate (CR)</option>
+                                <option value="er">Engagement Rate</option>
+                                <option value="ctr">Click-Through Rate (CTR)</option>
+                                <option value="acr">Add-to-Cart Rate</option>
+                                <option value="ckr">Checkout Rate</option>
+                                <option value="br">Bounce Rate</option>
+                                <option value="pdp">PDP View Rate</option>
+                                <option value="custom">Custom…</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
                             <label class="block text-xs font-medium text-slate-600 mb-1">Metric Name</label>
                             <input type="text" id="m1_name" value="Conversion Rate (CR)"
                                 class="w-full border border-blue-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
-                                oninput="updateChartLabels()">
+                                oninput="onM1NameInput()">
                         </div>
                         <div class="col-span-2">
                             <label class="block text-xs font-medium text-slate-600 mb-1">Baseline (%)</label>
@@ -90,56 +103,31 @@
                     </div>
                 </section>
 
-                <!-- Metric 2: Continuous -->
-                <section class="bg-purple-50 border border-purple-100 rounded-xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-5 h-5 rounded-full bg-purple-600 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">2</span>
-                        <span class="text-xs font-bold uppercase tracking-wide text-purple-600">Continuous / Value Metric</span>
+                <!-- Value / Continuous Metrics (dynamic) -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">Value / Continuous Metrics</h2>
+                        <button onclick="addValueMetric()"
+                            class="flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800 border border-purple-200 hover:border-purple-400 rounded-lg px-2.5 py-1 transition-colors bg-white">
+                            + Add metric
+                        </button>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="col-span-2">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Metric Name</label>
-                            <input type="text" id="m2_name" value="Revenue per Session (RPS)"
-                                class="w-full border border-purple-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
-                                oninput="updateChartLabels()">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Baseline Value</label>
-                            <input type="number" id="m2_base" value="11.79" step="0.01"
-                                class="w-full border border-purple-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
-                                oninput="debounceCalculate()">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Coeff. of Variation (CV)</label>
-                            <input type="number" id="m2_cv" value="4.29" step="0.01" min="0"
-                                class="w-full border border-purple-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-300 outline-none"
-                                oninput="debounceCalculate()">
-                        </div>
-                    </div>
-                </section>
+                    <div id="value_metrics_container" class="space-y-3"></div>
+                    <p id="no_value_metrics_hint" class="text-xs text-slate-400 italic mt-2 hidden">No value metrics — click "+ Add metric" to include one.</p>
+                </div>
 
                 <!-- Test Duration -->
                 <section>
                     <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Test Duration</h2>
                     <p class="text-xs text-slate-400 mb-3">
-                        <span class="text-amber-500 font-bold">★ Recommended</span> = minimum days to reliably detect your chosen sensitivity level on the rate metric, at the selected confidence &amp; power.
+                        <span class="text-amber-500 font-bold">★ Recommended</span> = minimum days to reliably detect your chosen sensitivity level on the rate metric.
                         Requires ~<span id="req_days_text" class="font-semibold text-slate-500">—</span> days of data.
                     </p>
                     <div id="period_options" class="flex flex-wrap gap-2"></div>
                 </section>
 
                 <!-- Results Box -->
-                <section id="results_box" class="rounded-xl p-5 border-2 border-blue-200 bg-gradient-to-br from-slate-50 to-blue-50 relative">
-                    <!-- Loading overlay -->
-                    <div id="loading_overlay" class="hidden absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
-                        <div class="flex items-center gap-2 text-sm text-slate-500">
-                            <svg class="animate-spin w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                            </svg>
-                            Calculating…
-                        </div>
-                    </div>
+                <section id="results_box" class="rounded-xl p-5 border-2 border-blue-200 bg-gradient-to-br from-slate-50 to-blue-50">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-bold text-slate-800">
                             MDE Summary — <span id="display_days" class="text-blue-600">—</span> Days
@@ -150,28 +138,7 @@
                         Sample per variant: <strong id="out_n" class="text-base text-slate-800">—</strong>
                     </p>
                     <hr class="border-slate-200 mb-3">
-                    <div class="space-y-3">
-                        <div class="flex items-start gap-2">
-                            <span class="mt-1 w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-                            <div>
-                                <p class="text-xs text-slate-500" id="m1_result_label">Metric 1</p>
-                                <p class="text-sm font-semibold text-green-700">
-                                    Min detectable lift: <span id="out_m1_abs">—</span> &nbsp;<span class="font-normal text-slate-400">abs</span>
-                                    &nbsp;·&nbsp; <span id="out_m1_rel">—</span>% <span class="font-normal text-slate-400">rel</span>
-                                </p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-2">
-                            <span class="mt-1 w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0"></span>
-                            <div>
-                                <p class="text-xs text-slate-500" id="m2_result_label">Metric 2</p>
-                                <p class="text-sm font-semibold text-green-700">
-                                    Min detectable lift: <span id="out_m2_abs">—</span> &nbsp;<span class="font-normal text-slate-400">abs</span>
-                                    &nbsp;·&nbsp; <span id="out_m2_rel">—</span>% <span class="font-normal text-slate-400">rel</span>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="metric_results" class="space-y-3"></div>
                     <p id="low_traffic_warn" class="hidden mt-3 text-xs text-red-500 italic">
                         ⚠ Even at 90 days, the required sample size for your target lift is not reached. Consider increasing traffic or raising the target lift.
                     </p>
@@ -189,28 +156,57 @@
                 <div class="mt-3 space-y-1 text-xs text-slate-400 italic">
                     <p>
                         Vertical dashed lines mark your <span class="text-blue-500 not-italic font-semibold">selected</span> and <span class="text-amber-500 not-italic font-semibold">★ recommended</span> periods.
-                        The <span class="text-amber-500 not-italic font-semibold">amber horizontal line</span> is your target lift — the recommended period is where the rate-metric curve first crosses below it.
+                        The <span class="text-amber-500 not-italic font-semibold">amber horizontal line</span> is your target lift.
                     </p>
                     <p>MDE ∝ 1/√n — returns are always diminishing, but the rate depends on your traffic and metric variability.</p>
                 </div>
             </div>
 
         </div>
+
+        <!-- ── Screenshot Board ── -->
+        <div class="mt-10">
+            <div class="flex items-center gap-2 mb-3">
+                <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">Results Card</h2>
+                <span class="text-xs text-slate-400">— fill in the details below, then take a screenshot</span>
+            </div>
+
+            <div id="screenshot_board" class="border-2 border-slate-200 rounded-2xl p-6 bg-white shadow-sm">
+
+                <!-- Editable header row -->
+                <div class="flex flex-wrap items-end gap-4 pb-4 border-b border-slate-100 mb-5">
+                    <div class="flex-1 min-w-48">
+                        <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-widest">Test Name</label>
+                        <input type="text" id="test_name" placeholder="e.g. Homepage hero CTA test"
+                            class="w-full border-b-2 border-slate-200 focus:border-blue-400 outline-none text-lg font-bold text-slate-800 bg-transparent pb-1 placeholder:font-normal placeholder:text-slate-300"
+                            oninput="refreshBoard()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-widest">Start Date</label>
+                        <input type="date" id="board_start"
+                            class="border-b-2 border-slate-200 focus:border-blue-400 outline-none text-sm text-slate-600 bg-transparent pb-1"
+                            oninput="refreshBoard()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-widest">End Date</label>
+                        <input type="date" id="board_end"
+                            class="border-b-2 border-slate-200 focus:border-blue-400 outline-none text-sm text-slate-600 bg-transparent pb-1"
+                            oninput="refreshBoard()">
+                    </div>
+                </div>
+
+                <div id="board_content" class="text-slate-400 text-sm italic">Run a calculation to populate the results card.</div>
+
+                <p class="text-right text-xs text-slate-300 mt-5">A/B Test MDE Calculator</p>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
-    // ── Stats functions (ported from backend/stats.js) ──────────────────────
+    // ── Stat helpers ─────────────────────────────────────────────────────────
     const PERIOD_OPTIONS = [14, 21, 30, 45, 60, 90];
-
-    function computeMDE({ traffic, days, cr, variance, m2Base, Z }) {
-        const n = (traffic * days) / 2;
-        const m1_abs = Z * Math.sqrt((2 * cr * (1 - cr)) / n);
-        const m1_rel = (m1_abs / cr) * 100;
-        const m2_abs = Z * Math.sqrt((2 * variance) / n);
-        const m2_rel = (m2_abs / m2Base) * 100;
-        return { n, m1_abs, m1_rel, m2_abs, m2_rel };
-    }
 
     function requiredDays({ traffic, cr, Z, targetPct }) {
         const delta = cr * (targetPct / 100);
@@ -223,23 +219,48 @@
         return PERIOD_OPTIONS.find(d => d >= days_req) ?? null;
     }
 
-    function buildChartData({ traffic, cr, variance, m2Base, Z }) {
-        const m1 = [], m2 = [];
-        for (let d = 7; d <= 120; d++) {
-            const pn = (traffic * d) / 2;
-            m1.push({ x: d, y: (Z * Math.sqrt((2 * cr * (1 - cr)) / pn)) / cr * 100 });
-            m2.push({ x: d, y: variance > 0 ? (Z * Math.sqrt((2 * variance) / pn)) / m2Base * 100 : 0 });
-        }
-        return { m1, m2 };
-    }
+    // ── Presets ──────────────────────────────────────────────────────────────
+    const RATE_PRESETS = {
+        cr:     { name: 'Conversion Rate (CR)',      baseline: 10.42 },
+        er:     { name: 'Engagement Rate',            baseline: 35.0  },
+        ctr:    { name: 'Click-Through Rate (CTR)',   baseline: 3.5   },
+        acr:    { name: 'Add-to-Cart Rate',           baseline: 8.0   },
+        ckr:    { name: 'Checkout Rate',              baseline: 5.0   },
+        br:     { name: 'Bounce Rate',                baseline: 42.0  },
+        pdp:    { name: 'PDP View Rate',              baseline: 22.0  },
+        custom: { name: '',                           baseline: null  },
+    };
 
+    const VALUE_PRESETS = {
+        rps:    { name: 'Revenue per Session (RPS)',  baseline: 11.79, cv: 4.29 },
+        rpu:    { name: 'Revenue per User (RPU)',      baseline: 24.50, cv: 3.80 },
+        aov:    { name: 'Average Order Value (AOV)',   baseline: 85.00, cv: 1.20 },
+        rpc:    { name: 'Revenue per Click',           baseline: 0.85,  cv: 5.50 },
+        dur:    { name: 'Session Duration (s)',        baseline: 185.0, cv: 1.80 },
+        ppv:    { name: 'Pages per Visit',             baseline: 3.2,   cv: 0.90 },
+        custom: { name: '',                            baseline: null,  cv: null  },
+    };
+
+    // One color per value metric slot (purple, green, orange, cyan, red)
+    const VM_COLORS    = ['#9333ea','#16a34a','#ea580c','#0891b2','#dc2626'];
+    const VM_BG        = ['rgba(147,51,234,0.07)','rgba(22,163,74,0.07)','rgba(234,88,12,0.07)','rgba(8,145,178,0.07)','rgba(220,38,38,0.07)'];
+    const VM_BORDER    = ['border-purple-100','border-green-100','border-orange-100','border-cyan-100','border-red-100'];
+    const VM_BG_CLASS  = ['bg-purple-50','bg-green-50','bg-orange-50','bg-cyan-50','bg-red-50'];
+    const VM_TEXT      = ['text-purple-600','text-green-600','text-orange-600','text-cyan-600','text-red-600'];
+    const VM_INPUT_B   = ['border-purple-200','border-green-200','border-orange-200','border-cyan-200','border-red-200'];
+    const VM_RING      = ['focus:ring-purple-300','focus:ring-green-300','focus:ring-orange-300','focus:ring-cyan-300','focus:ring-red-300'];
+
+    // ── App state ────────────────────────────────────────────────────────────
     let mdeChart;
     let selectedPeriod    = 60;
     let recommendedPeriod = null;
     let currentTargetPct  = 5;
     let debounceTimer     = null;
+    let nextMetricId      = 2;
+    let valueMetrics      = [{ id: 1, preset: 'rps', name: 'Revenue per Session (RPS)', baseline: 11.79, cv: 4.29 }];
+    let lastRenderData    = null;
 
-    // ── Custom plugin: vertical lines + horizontal target reference line ──────
+    // ── Chart vertical-line plugin ───────────────────────────────────────────
     const verticalLinePlugin = {
         id: 'verticalLines',
         afterDraw(chart) {
@@ -294,27 +315,13 @@
         }
     };
 
+    // ── Init ─────────────────────────────────────────────────────────────────
     function init() {
         const ctx = document.getElementById('mdeChart').getContext('2d');
         mdeChart = new Chart(ctx, {
             type: 'line',
             plugins: [verticalLinePlugin],
-            data: {
-                datasets: [
-                    {
-                        label: 'Metric 1 MDE %',
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37,99,235,0.07)',
-                        data: [], tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4,
-                    },
-                    {
-                        label: 'Metric 2 MDE %',
-                        borderColor: '#9333ea',
-                        backgroundColor: 'rgba(147,51,234,0.07)',
-                        data: [], tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4,
-                    }
-                ]
-            },
+            data: { datasets: [] },
             options: {
                 responsive: true,
                 layout: { padding: { top: 18 } },
@@ -334,55 +341,175 @@
             }
         });
 
+        renderValueMetricCards();
         calculate();
         setApiStatus(true);
     }
 
-    // ── Debounce for text/number inputs (avoid API call on every keystroke) ──
+    // ── Preset handlers ──────────────────────────────────────────────────────
+    function applyRatePreset() {
+        const id = document.getElementById('m1_preset').value;
+        const p  = RATE_PRESETS[id];
+        if (!p) return;
+        document.getElementById('m1_name').value = p.name;
+        if (p.baseline !== null) document.getElementById('m1_base').value = p.baseline;
+        calculate();
+    }
+
+    function onM1NameInput() {
+        document.getElementById('m1_preset').value = 'custom';
+        calculate();
+    }
+
+    function applyValuePreset(metricId) {
+        const sel = document.getElementById(`vm_preset_${metricId}`);
+        if (!sel) return;
+        const p = VALUE_PRESETS[sel.value];
+        if (!p) return;
+        const m = valueMetrics.find(m => m.id === metricId);
+        if (!m) return;
+        m.preset = sel.value;
+        m.name   = p.name;
+        if (p.baseline !== null) m.baseline = p.baseline;
+        if (p.cv !== null)       m.cv       = p.cv;
+        const nameEl = document.getElementById(`vm_name_${metricId}`);
+        const baseEl = document.getElementById(`vm_base_${metricId}`);
+        const cvEl   = document.getElementById(`vm_cv_${metricId}`);
+        if (nameEl) nameEl.value = m.name;
+        if (baseEl) baseEl.value = m.baseline;
+        if (cvEl)   cvEl.value   = m.cv;
+        calculate();
+    }
+
+    // ── Value metric CRUD ────────────────────────────────────────────────────
+    function addValueMetric() {
+        const preset = valueMetrics.length === 0 ? 'rps' : 'rpu';
+        const p = VALUE_PRESETS[preset];
+        valueMetrics.push({ id: nextMetricId++, preset, name: p.name, baseline: p.baseline, cv: p.cv });
+        renderValueMetricCards();
+        calculate();
+    }
+
+    function removeValueMetric(id) {
+        valueMetrics = valueMetrics.filter(m => m.id !== id);
+        renderValueMetricCards();
+        calculate();
+    }
+
+    function syncValueMetric(id, field, value) {
+        const m = valueMetrics.find(m => m.id === id);
+        if (!m) return;
+        if (field === 'name') {
+            m.name   = value;
+            m.preset = 'custom';
+            document.getElementById(`vm_preset_${id}`).value = 'custom';
+        } else {
+            m[field] = parseFloat(value) || 0;
+        }
+        debounceCalculate();
+    }
+
+    function renderValueMetricCards() {
+        const container = document.getElementById('value_metrics_container');
+        const hint      = document.getElementById('no_value_metrics_hint');
+        container.innerHTML = '';
+        hint.classList.toggle('hidden', valueMetrics.length > 0);
+
+        valueMetrics.forEach((m, idx) => {
+            const i  = idx % 5;
+            const card = document.createElement('section');
+            card.className = `${VM_BG_CLASS[i]} border ${VM_BORDER[i]} rounded-xl p-4`;
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full text-white text-xs flex items-center justify-center font-bold flex-shrink-0"
+                              style="background:${VM_COLORS[i]}">${idx + 2}</span>
+                        <span class="text-xs font-bold uppercase tracking-wide ${VM_TEXT[i]}">Value / Continuous Metric</span>
+                    </div>
+                    <button onclick="removeValueMetric(${m.id})" title="Remove"
+                        class="text-slate-300 hover:text-red-400 text-xl leading-none transition-colors px-1">✕</button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Preset</label>
+                        <select id="vm_preset_${m.id}" onchange="applyValuePreset(${m.id})"
+                            class="w-full border ${VM_INPUT_B[i]} rounded-lg p-2 text-sm bg-white focus:ring-2 ${VM_RING[i]} outline-none">
+                            <option value="rps"    ${m.preset==='rps'   ?'selected':''}>Revenue per Session (RPS)</option>
+                            <option value="rpu"    ${m.preset==='rpu'   ?'selected':''}>Revenue per User (RPU)</option>
+                            <option value="aov"    ${m.preset==='aov'   ?'selected':''}>Average Order Value (AOV)</option>
+                            <option value="rpc"    ${m.preset==='rpc'   ?'selected':''}>Revenue per Click</option>
+                            <option value="dur"    ${m.preset==='dur'   ?'selected':''}>Session Duration (s)</option>
+                            <option value="ppv"    ${m.preset==='ppv'   ?'selected':''}>Pages per Visit</option>
+                            <option value="custom" ${m.preset==='custom'?'selected':''}>Custom…</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Metric Name</label>
+                        <input type="text" id="vm_name_${m.id}" value="${m.name}"
+                            class="w-full border ${VM_INPUT_B[i]} rounded-lg p-2 text-sm bg-white focus:ring-2 ${VM_RING[i]} outline-none"
+                            oninput="syncValueMetric(${m.id}, 'name', this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Baseline Value</label>
+                        <input type="number" id="vm_base_${m.id}" value="${m.baseline}" step="0.01"
+                            class="w-full border ${VM_INPUT_B[i]} rounded-lg p-2 text-sm bg-white focus:ring-2 ${VM_RING[i]} outline-none"
+                            oninput="syncValueMetric(${m.id}, 'baseline', this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Coeff. of Variation (CV)</label>
+                        <input type="number" id="vm_cv_${m.id}" value="${m.cv}" step="0.01" min="0"
+                            class="w-full border ${VM_INPUT_B[i]} rounded-lg p-2 text-sm bg-white focus:ring-2 ${VM_RING[i]} outline-none"
+                            oninput="syncValueMetric(${m.id}, 'cv', this.value)">
+                    </div>
+                </div>`;
+            container.appendChild(card);
+        });
+    }
+
+    // ── Debounce ─────────────────────────────────────────────────────────────
     function debounceCalculate() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(calculate, 350);
     }
 
-    // ── Main: read inputs → call API → render results ──────────────────────
+    // ── Main calculate ────────────────────────────────────────────────────────
     function calculate() {
-        const traffic    = parseFloat(document.getElementById('traffic').value)    || 0;
-        const m1Base     = parseFloat(document.getElementById('m1_base').value)    || 0;
-        const m2Base     = parseFloat(document.getElementById('m2_base').value)    || 0;
-        const m2CV       = parseFloat(document.getElementById('m2_cv').value)      || 0;
-        const targetLift = parseFloat(document.getElementById('target_lift').value)|| 5;
+        const traffic    = parseFloat(document.getElementById('traffic').value)     || 0;
+        const m1Base     = parseFloat(document.getElementById('m1_base').value)     || 0;
+        const targetLift = parseFloat(document.getElementById('target_lift').value) || 5;
         const confidence = parseFloat(document.getElementById('confidence').value);
         const power      = parseFloat(document.getElementById('power').value);
+        const m1Name     = document.getElementById('m1_name').value || 'Rate Metric';
 
-        if (!traffic || !m1Base || !m2Base) return;
+        if (!traffic || !m1Base) return;
 
-        setApiError('');
+        const cr = m1Base / 100;
+        const Z  = confidence + power;
+        const n  = (traffic * selectedPeriod) / 2;
 
-        const cr       = m1Base / 100;
-        const Z        = confidence + power;
-        const variance = Math.pow(m2Base * m2CV, 2);
+        // Rate metric
+        const m1_abs = Z * Math.sqrt((2 * cr * (1 - cr)) / n);
+        const m1_rel = (m1_abs / cr) * 100;
 
-        const mde       = computeMDE({ traffic, days: selectedPeriod, cr, variance, m2Base, Z });
-        const days_req  = requiredDays({ traffic, cr, Z, targetPct: targetLift });
+        // Value metrics
+        const vmResults = valueMetrics.map(m => {
+            const variance = Math.pow((m.baseline || 0) * (m.cv || 0), 2);
+            const mde_abs  = variance > 0 ? Z * Math.sqrt((2 * variance) / n) : 0;
+            const mde_rel  = variance > 0 && m.baseline ? (mde_abs / m.baseline) * 100 : 0;
+            return { ...m, variance, mde_abs, mde_rel };
+        });
+
+        const days_req    = requiredDays({ traffic, cr, Z, targetPct: targetLift });
         const recommended = getRecommendedPeriod({ traffic, cr, Z, targetPct: targetLift });
-        const chartData = buildChartData({ traffic, cr, variance, m2Base, Z });
 
-        const data = {
-            ...mde,
-            requiredDays:      days_req,
-            recommendedPeriod: recommended,
-            periodOptions:     PERIOD_OPTIONS,
-            chartData,
-        };
+        const renderData = { n, m1Name, m1_abs, m1_rel, requiredDays: days_req, recommendedPeriod: recommended, vmResults, traffic, confidence, power };
+        lastRenderData = { data: renderData, targetPct: targetLift };
 
-        renderResults(data, targetLift);
+        renderResults(renderData, targetLift);
     }
 
-    // ── Render API response into the UI ────────────────────────────────────
+    // ── Render results pane ───────────────────────────────────────────────────
     function renderResults(data, targetPct) {
-        const m1Name = document.getElementById('m1_name').value || 'Metric 1';
-        const m2Name = document.getElementById('m2_name').value || 'Metric 2';
-
         currentTargetPct  = targetPct;
         recommendedPeriod = data.recommendedPeriod;
 
@@ -392,33 +519,84 @@
         renderPeriodButtons();
 
         document.getElementById('low_traffic_warn').classList.toggle('hidden', recommendedPeriod !== null);
-
         document.getElementById('display_days').textContent = selectedPeriod;
         document.getElementById('out_n').textContent        = Math.round(data.n).toLocaleString() + ' units';
-        document.getElementById('out_m1_abs').textContent   = '+' + (data.m1_abs * 100).toFixed(2) + ' pp';
-        document.getElementById('out_m1_rel').textContent   = data.m1_rel.toFixed(1);
-        document.getElementById('out_m2_abs').textContent   = '+' + data.m2_abs.toFixed(3);
-        document.getElementById('out_m2_rel').textContent   = data.m2_rel.toFixed(1);
-        document.getElementById('m1_result_label').textContent = m1Name;
-        document.getElementById('m2_result_label').textContent = m2Name;
-
         document.getElementById('rec_badge').classList.toggle('hidden', selectedPeriod !== recommendedPeriod);
 
-        mdeChart.data.datasets[0].data  = data.chartData.m1;
-        mdeChart.data.datasets[0].label = m1Name + ' MDE %';
-        mdeChart.data.datasets[1].data  = data.chartData.m2;
-        mdeChart.data.datasets[1].label = m2Name + ' MDE %';
+        // Metric result rows
+        const container = document.getElementById('metric_results');
+        container.innerHTML = `
+            <div class="flex items-start gap-2">
+                <span class="mt-1 w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                <div>
+                    <p class="text-xs text-slate-500">${data.m1Name}</p>
+                    <p class="text-sm font-semibold text-green-700">
+                        Min detectable lift: +${(data.m1_abs * 100).toFixed(2)} pp
+                        &nbsp;·&nbsp; ${data.m1_rel.toFixed(1)}% <span class="font-normal text-slate-400">rel</span>
+                    </p>
+                </div>
+            </div>`;
+
+        data.vmResults.forEach((m, idx) => {
+            const color = VM_COLORS[idx % VM_COLORS.length];
+            container.innerHTML += `
+                <div class="flex items-start gap-2">
+                    <span class="mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${color}"></span>
+                    <div>
+                        <p class="text-xs text-slate-500">${m.name || 'Value Metric ' + (idx + 1)}</p>
+                        <p class="text-sm font-semibold text-green-700">
+                            Min detectable lift: +${m.mde_abs.toFixed(3)}
+                            &nbsp;·&nbsp; ${m.mde_rel.toFixed(1)}% <span class="font-normal text-slate-400">rel</span>
+                        </p>
+                    </div>
+                </div>`;
+        });
+
+        // Chart datasets
+        const traffic = data.traffic;
+        const m1Base  = parseFloat(document.getElementById('m1_base').value) || 0;
+        const cr      = m1Base / 100;
+        const Z       = data.confidence + data.power;
+
+        const m1ChartData = [];
+        for (let d = 7; d <= 120; d++) {
+            const pn = (traffic * d) / 2;
+            m1ChartData.push({ x: d, y: (Z * Math.sqrt((2 * cr * (1 - cr)) / pn)) / cr * 100 });
+        }
+
+        const datasets = [{
+            label: data.m1Name + ' MDE %',
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37,99,235,0.07)',
+            data: m1ChartData, tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4,
+        }];
+
+        data.vmResults.forEach((m, idx) => {
+            const vmData = [];
+            for (let d = 7; d <= 120; d++) {
+                const pn = (traffic * d) / 2;
+                vmData.push({ x: d, y: m.variance > 0 && m.baseline ? (Z * Math.sqrt((2 * m.variance) / pn)) / m.baseline * 100 : 0 });
+            }
+            datasets.push({
+                label: (m.name || 'Value Metric ' + (idx + 1)) + ' MDE %',
+                borderColor: VM_COLORS[idx % VM_COLORS.length],
+                backgroundColor: VM_BG[idx % VM_BG.length],
+                data: vmData, tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4,
+            });
+        });
+
+        mdeChart.data.datasets = datasets;
         mdeChart.update();
+
+        renderBoard(data, targetPct);
     }
 
     function renderPeriodButtons() {
         const container = document.getElementById('period_options');
         container.innerHTML = '';
-
         PERIOD_OPTIONS.forEach(p => {
             const isRec = (p === recommendedPeriod);
             const isSel = (p === selectedPeriod);
-
             let cls = 'relative flex items-center gap-1 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm font-semibold transition-all select-none ';
             if      (isSel && isRec) cls += 'border-blue-500 bg-blue-100 text-blue-800 shadow ring-2 ring-amber-400 ring-offset-1';
             else if (isSel)          cls += 'border-blue-500 bg-blue-100 text-blue-800 shadow';
@@ -427,35 +605,88 @@
 
             const lbl = document.createElement('label');
             lbl.className = cls;
-
             const radio = document.createElement('input');
-            radio.type    = 'radio';
-            radio.name    = 'period';
-            radio.value   = p;
-            radio.checked = isSel;
+            radio.type = 'radio'; radio.name = 'period'; radio.value = p; radio.checked = isSel;
             radio.className = 'sr-only';
             radio.addEventListener('change', () => { selectedPeriod = p; calculate(); });
-
             lbl.appendChild(radio);
             lbl.insertAdjacentHTML('beforeend', `<span>${p}d</span>`);
             if (isRec) lbl.insertAdjacentHTML('beforeend', `<span class="text-amber-500">★</span>`);
-
             container.appendChild(lbl);
         });
     }
 
-    function updateChartLabels() {
-        if (!mdeChart) return;
-        const m1Name = document.getElementById('m1_name').value || 'Metric 1';
-        const m2Name = document.getElementById('m2_name').value || 'Metric 2';
-        mdeChart.data.datasets[0].label = m1Name + ' MDE %';
-        mdeChart.data.datasets[1].label = m2Name + ' MDE %';
-        mdeChart.update();
-        document.getElementById('m1_result_label').textContent = m1Name;
-        document.getElementById('m2_result_label').textContent = m2Name;
+    // ── Screenshot board ─────────────────────────────────────────────────────
+    function refreshBoard() {
+        if (lastRenderData) renderBoard(lastRenderData.data, lastRenderData.targetPct);
     }
 
-    // ── UI helpers ──────────────────────────────────────────────────────────
+    function renderBoard(data, targetPct) {
+        const confLabel  = { 1.645: '90%', 1.96: '95%', 2.576: '99%' }[data.confidence] || '—';
+        const powerLabel = { 0.524: '70%', 0.842: '80%', 1.282: '90%' }[data.power]      || '—';
+        const isRec      = selectedPeriod === recommendedPeriod;
+
+        const startVal = document.getElementById('board_start').value;
+        const endVal   = document.getElementById('board_end').value;
+        const fmtDate  = v => v ? new Date(v + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+        const startStr = fmtDate(startVal);
+        const endStr   = fmtDate(endVal);
+        let dateRange  = '';
+        if (startStr && endStr) dateRange = `${startStr} → ${endStr}`;
+        else if (startStr)      dateRange = `From ${startStr}`;
+        else if (endStr)        dateRange = `Until ${endStr}`;
+
+        // Summary tiles
+        let metricsHtml = `
+            <div class="flex items-start gap-3 pb-3">
+                <span class="w-3 h-3 mt-0.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                <div class="flex-1 flex items-baseline gap-2 flex-wrap">
+                    <span class="text-sm font-semibold text-slate-600">${data.m1Name}</span>
+                    <span class="text-base font-bold text-slate-800">+${(data.m1_abs * 100).toFixed(2)} pp</span>
+                    <span class="text-xs text-slate-400">${data.m1_rel.toFixed(1)}% rel</span>
+                </div>
+            </div>`;
+
+        data.vmResults.forEach((m, idx) => {
+            const color = VM_COLORS[idx % VM_COLORS.length];
+            metricsHtml += `
+                <div class="flex items-start gap-3 pt-3 border-t border-slate-100">
+                    <span class="w-3 h-3 mt-0.5 rounded-full flex-shrink-0" style="background:${color}"></span>
+                    <div class="flex-1 flex items-baseline gap-2 flex-wrap">
+                        <span class="text-sm font-semibold text-slate-600">${m.name || 'Value Metric ' + (idx + 1)}</span>
+                        <span class="text-base font-bold text-slate-800">+${m.mde_abs.toFixed(3)}</span>
+                        <span class="text-xs text-slate-400">${m.mde_rel.toFixed(1)}% rel</span>
+                    </div>
+                </div>`;
+        });
+
+        document.getElementById('board_content').innerHTML = `
+            <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-400 mb-1 uppercase tracking-wider">Test Period</p>
+                    <p class="text-2xl font-bold text-slate-800">${selectedPeriod}<span class="text-sm font-normal text-slate-400"> d</span></p>
+                    ${dateRange ? `<p class="text-xs text-slate-500 mt-0.5">${dateRange}</p>` : ''}
+                    ${isRec ? '<p class="text-xs text-amber-500 font-semibold mt-0.5">★ Recommended</p>' : ''}
+                </div>
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-400 mb-1 uppercase tracking-wider">Sample / Variant</p>
+                    <p class="text-2xl font-bold text-slate-800">${Math.round(data.n).toLocaleString()}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">${Number(data.traffic).toLocaleString()} units/day</p>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-400 mb-1 uppercase tracking-wider">Stats Settings</p>
+                    <p class="text-sm font-bold text-slate-700 mt-1">${confLabel} confidence</p>
+                    <p class="text-sm font-bold text-slate-700">${powerLabel} power</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Target lift ≥${targetPct}%</p>
+                </div>
+            </div>
+            <div class="border border-slate-100 rounded-xl px-5 py-4">
+                <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Minimum Detectable Effects</p>
+                ${metricsHtml}
+            </div>`;
+    }
+
+    // ── UI helpers ───────────────────────────────────────────────────────────
     function setApiError(msg) {
         const el = document.getElementById('api_error');
         el.textContent = msg;
@@ -463,8 +694,8 @@
     }
 
     function setApiStatus(ok) {
-        document.getElementById('api_dot').className   = `w-2 h-2 rounded-full ${ok ? 'bg-green-400' : 'bg-red-400'}`;
-        document.getElementById('api_label').textContent = ok ? 'API connected' : 'API offline';
+        document.getElementById('api_dot').className    = `w-2 h-2 rounded-full ${ok ? 'bg-green-400' : 'bg-red-400'}`;
+        document.getElementById('api_label').textContent = ok ? 'running locally' : 'error';
     }
 </script>
 </body>
